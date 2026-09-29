@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3Dcal - Calculadora y Facturación 3D</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- html2pdf.js for pristine vector/HTML to PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    input[type=range] {
+      accent-color: #4f46e5;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 9999px;
+    }
+    /* Estilos de impresión y PDF */
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+      #invoice-sheet, #invoice-sheet * {
+        visibility: visible !important;
+      }
+      #invoice-sheet {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100% !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col font-sans selection:bg-brand-500 selection:text-white">
+
+  <!-- ENCABEZADO -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- Logo geométrico estilizado en cabecera -->
+        <div class="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center p-2 text-white shadow-md shadow-slate-900/10 transition-transform hover:scale-105">
+          <svg class="w-full h-full fill-white" viewBox="0 0 100 100">
+            <path d="M50 8 L92 78 L68 92 L50 64 L32 92 L8 78 Z M50 36 L28 72 L38 78 L50 60 L62 78 L72 72 Z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-extrabold text-xl tracking-tight text-slate-900">3Dcal</h1>
+            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-100">Studio Pro</span>
+          </div>
+          <p class="text-xs text-slate-500 font-medium">Cotizador & Facturación de Fabricación Aditiva</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <button id="btn-save-defaults" title="Guardar parámetros actuales como predeterminados" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200">
+          <i data-lucide="save" class="w-3.5 h-3.5"></i>
+          Guardar Perfil
+        </button>
+        <button id="btn-open-preview" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors border border-brand-200">
+          <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+          Factura
+        </button>
+        <button id="btn-reset" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-slate-200">
+          Reiniciar
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+      <!-- COLUMNA IZQUIERDA: Formulario de Parámetros y Costos -->
+      <div class="lg:col-span-7 space-y-6">
+
+        <!-- 1. DATOS DE LA PIEZA Y CLIENTE -->
+        <section class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 transition duration-150">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-brand-600 text-xs font-bold">1</span>
+              Detalles del Proyecto y Cliente (Factura)
+            </h2>
+            <span class="text-xs text-slate-400 font-normal">Información comercial</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="input-item-title">
+                Descripción / Nombre de la Pieza
+              </label>
+              <input type="text" id="input-item-title" value="Prototipo Carcasa Electrónica v2" class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none font-medium">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="input-client-name">
+                Nombre del Cliente / Empresa
+              </label>
+              <input type="text" id="input-client-name" value="Innovatech Soluciones Cía." class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none font-medium">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- Gramos de filamento -->
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="input-weight">
+                Peso neto + soporte
+              </label>
+              <div class="relative">
+                <input type="number" id="input-weight" min="0.1" step="0.5" value="85" class="w-full pl-3 pr-12 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none font-semibold">
+                <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">gramos</span>
+              </div>
+              <span class="text-[10px] text-slate-400 mt-1 block">Lectura directa del Slicer</span>
+            </div>
+
+            <!-- Tiempo de Impresión -->
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">
+                Tiempo de impresión
+              </label>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div class="relative">
+                  <input type="number" id="input-hours" min="0" value="4" class="w-full pl-2 pr-6 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none font-semibold">
+                  <span class="absolute right-2 top-2.5 text-xs text-slate-400">h</span>
+                </div>
+                <div class="relative">
+                  <input type="number" id="input-minutes" min="0" max="59" value="30" class="w-full pl-2 pr-7 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none font-semibold">
+                  <span class="absolute right-2 top-2.5 text-xs text-slate-400">min</span>
+                </div>
+              </div>
+              <span class="text-[10px] text-slate-400 mt-1 block" id="label-total-hours-decimal">Equivale a 4.50 h</span>
+            </div>
+
+            <!-- Cantidad de piezas -->
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="input-units">
+                Cantidad de unidades
+              </label>
+              <div class="relative">
+                <input type="number" id="input-units" min="1" value="1" class="w-full pl-3 pr-12 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none font-semibold">
+                <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">piezas</span>
+              </div>
+              <span class="text-[10px] text-slate-400 mt-1 block">Lote de fabricación</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. MATERIAL Y FILAMENTO -->
+        <section class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 transition duration-150">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-brand-600 text-xs font-bold">2</span>
+              Material, Bobina y Desperdicio
+            </h2>
+            <span class="text-xs text-slate-500 font-mono" id="label-cost-per-gram">$0.020 / g</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="select-material">
+                Material / Tipo
+              </label>
+              <select id="select-material" class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                <option value="pla" data-price="20">PLA Estándar ($20/kg)</option>
+                <option value="petg" data-price="22">PETG Alta Resistencia ($22/kg)</option>
+                <option value="abs" data-price="24">ABS / ASA ($24/kg)</option>
+                <option value="tpu" data-price="32">TPU Flexible ($32/kg)</option>
+                <option value="pla_cf" data-price="38">PLA Fibra de Carbono ($38/kg)</option>
+                <option value="resin_std" data-price="28">Resina Estándar ($28/L)</option>
+                <option value="resin_abs" data-price="36">Resina ABS-Like ($36/L)</option>
+                <option value="custom" data-price="25">Personalizado / Especial</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="input-spool-price">
+                Costo Carrete / Litro ($)
+              </label>
+              <div class="relative">
+                <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-medium">$</span>
+                <input type="number" id="input-spool-price" step="0.5" value="20.00" class="w-full pl-7 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="input-waste-percent">
+                Purga / Fallos de inicio (%)
+              </label>
+              <div class="relative">
+                <input type="number" id="input-waste-percent" min="0" max="50" step="1" value="8" class="w-full pl-3 pr-8 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">%</span>
+              </div>
+            </div>
+          </div>
+          <div class="text-[11px] text-slate-500 flex items-center gap-1.5 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+            <i data-lucide="info" class="w-3.5 h-3.5 text-brand-500 shrink-0"></i>
+            <span>Contempla faldón (brim), torres de purga y tolerancias dimensionales.</span>
+          </div>
+        </section>
+
+        <!-- 3. ELECTRICIDAD Y AMORTIZACIÓN -->
+        <section class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 transition duration-150">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-brand-600 text-xs font-bold">3</span>
+              Energía Eléctrica & Desgaste de Máquina
+            </h2>
+            <span class="text-xs text-slate-400">Costes de operación</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="input-power-watts">
+                Potencia media impresora
+              </label>
+              <div class="relative">
+                <input type="number" id="input-power-watts" min="10" step="10" value="130" class="w-full pl-3 pr-10 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">W</span>
+              </div>
+              <span class="text-[10px] text-slate-400 mt-1 block">FDM ~120-220W / Resina ~50W</span>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="input-kwh-cost">
+                Tarifa eléctrica ($/kWh)
+              </label>
+              <div class="relative">
+                <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-medium">$</span>
+                <input type="number" id="input-kwh-cost" step="0.01" value="0.12" class="w-full pl-7 pr-12 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">kWh</span>
+              </div>
+              <span class="text-[10px] text-slate-400 mt-1 block">Tarifa comercial o residencial</span>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="input-depreciation-hourly">
+                Amortización / Desgaste
+              </label>
+              <div class="relative">
+                <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-medium">$</span>
+                <input type="number" id="input-depreciation-hourly" step="0.05" value="0.25" class="w-full pl-7 pr-12 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">/ h</span>
+              </div>
+              <span class="text-[10px] text-slate-400 mt-1 block">Nozzles, PEI, poleas, lámina FEP</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. MANO DE OBRA Y POST-PROCESO -->
+        <section class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 transition duration-150">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-brand-600 text-xs font-bold">4</span>
+              Mano de Obra & Post-procesado
+            </h2>
+            <span class="text-xs text-slate-400">Limpieza, soportes, curado</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="input-labor-minutes">
+                Tiempo técnico por pieza
+              </label>
+              <div class="relative">
+                <input type="number" id="input-labor-minutes" min="0" step="5" value="15" class="w-full pl-3 pr-10 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none font-semibold">
+                <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">min</span>
+              </div>
+              <span class="text-[10px] text-slate-400 mt-1 block">Soportes, lijado y preparación</span>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="input-labor-rate">
+                Tarifa hora operario ($)
+              </label>
+              <div class="relative">
+                <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-medium">$</span>
+                <input type="number" id="input-labor-rate" step="0.5" value="8.00" class="w-full pl-7 pr-12 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">/ h</span>
+              </div>
+              <span class="text-[10px] text-slate-400 mt-1 block">Salario técnico proporcional</span>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1" for="input-extras-cost">
+                Insumos & Empaque ($)
+              </label>
+              <div class="relative">
+                <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-medium">$</span>
+                <input type="number" id="input-extras-cost" step="0.25" value="0.75" class="w-full pl-7 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              </div>
+              <span class="text-[10px] text-slate-400 mt-1 block">IPA, laca, cajas, insertos roscados</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. MARGEN DE GANANCIA, RIESGO DE FALLO E IMPUESTOS -->
+        <section class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 transition duration-150">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-brand-600 text-xs font-bold">5</span>
+              Margen Comercial & Cobertura de Riesgo
+            </h2>
+            <span class="text-sm font-bold text-brand-600" id="margin-val-display">80%</span>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <div class="flex justify-between items-center text-xs mb-1.5">
+                <label for="slider-margin" class="font-medium text-slate-600">Margen neto de beneficio:</label>
+                <div class="flex items-center gap-1">
+                  <button type="button" class="preset-margin px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold" data-val="40">40%</button>
+                  <button type="button" class="preset-margin px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold" data-val="60">60%</button>
+                  <button type="button" class="preset-margin px-2 py-0.5 rounded-lg bg-brand-50 text-brand-700 font-bold text-[11px]" data-val="80">80%</button>
+                  <button type="button" class="preset-margin px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold" data-val="120">120%</button>
+                  <button type="button" class="preset-margin px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold" data-val="180">180%</button>
+                </div>
+              </div>
+              <input id="slider-margin" type="range" min="10" max="300" step="5" value="80" class="w-full h-2 bg-slate-200 rounded-lg cursor-pointer">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1" for="input-risk-percent">
+                  Tasa de fallo / contingencia
+                </label>
+                <div class="relative">
+                  <input type="number" id="input-risk-percent" min="0" max="40" step="1" value="10" class="w-full pl-3 pr-8 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                  <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">%</span>
+                </div>
+                <span class="text-[10px] text-slate-400 mt-1 block">Cubre atascamientos o warping</span>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1" for="input-min-order">
+                  Tarifa base / Setup Fee ($)
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-medium">$</span>
+                  <input type="number" id="input-min-order" step="0.5" value="3.50" class="w-full pl-7 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+                <span class="text-[10px] text-slate-400 mt-1 block">Cobro mínimo de arranque</span>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1" for="input-tax-rate">
+                  Impuesto / IVA
+                </label>
+                <div class="flex items-center gap-2">
+                  <div class="relative flex-1">
+                    <input type="number" id="input-tax-rate" step="1" value="15" class="w-full pl-3 pr-8 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">%</span>
+                  </div>
+                  <label class="inline-flex items-center cursor-pointer shrink-0" title="Activar/Desactivar IVA">
+                    <input type="checkbox" id="check-apply-tax" checked class="sr-only peer">
+                    <div class="relative w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+                  </label>
+                </div>
+                <span class="text-[10px] text-slate-400 mt-1 block">Desglosar en factura</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- COLUMNA DERECHA: Resumen Financiero y Facturación -->
+      <div class="lg:col-span-5 space-y-6">
+
+        <!-- TARJETA PRINCIPAL DE RESULTADOS -->
+        <div class="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-3xl p-6 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden">
+          <div class="absolute -right-12 -top-12 w-48 h-48 bg-brand-500/15 rounded-full blur-2xl pointer-events-none"></div>
+
+          <div class="flex items-center justify-between text-slate-300 text-xs font-semibold uppercase tracking-wider mb-2">
+            <span>Precio Total Facturable</span>
+            <span id="badge-applied-min" class="hidden px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Tarifa Mínima Aplicada</span>
+          </div>
+
+          <div class="flex items-baseline gap-2 mb-4">
+            <span class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white font-mono" id="display-final-price">$0.00</span>
+            <span class="text-xs text-slate-400 font-medium" id="display-tax-status">IVA incl.</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 pt-4 border-t border-slate-800">
+            <div class="bg-white/5 rounded-2xl p-3 backdrop-blur-xs border border-white/5">
+              <span class="text-[11px] text-slate-400 block font-medium">Precio por Unidad</span>
+              <span class="text-xl font-bold text-white mt-0.5 block font-mono" id="display-price-per-unit">$0.00</span>
+            </div>
+            <div class="bg-white/5 rounded-2xl p-3 backdrop-blur-xs border border-white/5">
+              <span class="text-[11px] text-slate-400 block font-medium">Margen Neto Ganancia</span>
+              <span class="text-xl font-bold text-emerald-400 mt-0.5 block font-mono" id="display-net-profit">$0.00</span>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 flex items-center justify-between text-xs text-slate-400 border-t border-slate-800/80">
+            <span>Costo total de manufactura:</span>
+            <span class="font-bold text-slate-200 font-mono" id="display-total-cost-header">$0.00</span>
+          </div>
+        </div>
+
+        <!-- ACCIONES RÁPIDAS DE FACTURA -->
+        <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+              <i data-lucide="receipt" class="w-4 h-4 text-brand-600"></i>
+              Comprobante & Facturación
+            </h3>
+            <span class="text-[11px] font-mono text-slate-400" id="inv-header-code">INV-2026-8941</span>
+          </div>
+
+          <p class="text-xs text-slate-500">
+            Genera un documento PDF profesional para tus clientes con desglose técnico, condiciones de garantía y el identificador 3Dcal.
+          </p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+            <button id="btn-export-pdf" class="flex items-center justify-center gap-2 px-4 py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl text-xs transition shadow-md shadow-brand-600/25 active:scale-98">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              Exportar Factura PDF
+            </button>
+            <button id="btn-modal-preview" class="flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition active:scale-98">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+              Vista Previa
+            </button>
+          </div>
+        </div>
+
+        <!-- DESGLOSE FINANCIERO -->
+        <div class="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3 flex items-center justify-between">
+            <span>Composición de Costo & Margen</span>
+            <span class="text-[11px] font-medium text-brand-600" id="display-margin-ratio-label">Margen 80%</span>
+          </h3>
+
+          <div class="w-full h-3 rounded-full bg-slate-100 flex overflow-hidden mb-4 shadow-inner">
+            <div id="bar-material" class="bg-indigo-500 h-full transition-all duration-300" style="width: 35%"></div>
+            <div id="bar-energy" class="bg-amber-500 h-full transition-all duration-300" style="width: 15%"></div>
+            <div id="bar-wear" class="bg-rose-500 h-full transition-all duration-300" style="width: 20%"></div>
+            <div id="bar-labor" class="bg-emerald-500 h-full transition-all duration-300" style="width: 20%"></div>
+            <div id="bar-extras" class="bg-purple-500 h-full transition-all duration-300" style="width: 10%"></div>
+          </div>
+
+          <div class="space-y-2.5 text-xs text-slate-600">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"></span>
+                <span>Materia prima <span class="text-slate-400 font-mono" id="label-bd-grams">(0g)</span>:</span>
+              </span>
+              <span class="font-semibold text-slate-800 font-mono" id="bd-material">$0.00</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                <span>Energía consumida:</span>
+              </span>
+              <span class="font-semibold text-slate-800 font-mono" id="bd-energy">$0.00</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+                <span>Desgaste & Mant. máquina:</span>
+              </span>
+              <span class="font-semibold text-slate-800 font-mono" id="bd-wear">$0.00</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                <span>Mano de obra técnica:</span>
+              </span>
+              <span class="font-semibold text-slate-800 font-mono" id="bd-labor">$0.00</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"></span>
+                <span>Insumos & Contingencia:</span>
+              </span>
+              <span class="font-semibold text-slate-800 font-mono" id="bd-extras">$0.00</span>
+            </div>
+
+            <div class="pt-2 border-t border-slate-200 flex items-center justify-between font-bold text-slate-900 text-sm">
+              <span>Costo Producción Neto:</span>
+              <span class="font-mono" id="bd-total-cost">$0.00</span>
+            </div>
+
+            <div class="flex items-center justify-between text-slate-500">
+              <span>Ganancia / Margen:</span>
+              <span class="font-mono text-emerald-600 font-semibold" id="bd-margin">+$0.00</span>
+            </div>
+
+            <div class="flex items-center justify-between text-slate-500" id="row-tax">
+              <span id="bd-tax-label">IVA (15%):</span>
+              <span class="font-mono" id="bd-tax">+$0.00</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- PLANTILLA DE FACTURA / PROFORMA COMERCIAL 3Dcal -->
+  <!-- Este contenedor se renderiza dentro del modal y es la fuente para el PDF descargable -->
+  <div id="modal-invoice" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto hidden">
+    <div class="bg-slate-100 rounded-3xl max-w-4xl w-full p-4 sm:p-6 relative max-h-[92vh] flex flex-col shadow-2xl">
+      
+      <!-- Barra superior del modal -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-200 shrink-0">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center p-1.5 text-white">
+            <svg class="w-full h-full fill-white" viewBox="0 0 100 100">
+              <path d="M50 8 L92 78 L68 92 L50 64 L32 92 L8 78 Z M50 36 L28 72 L38 78 L50 60 L62 78 L72 72 Z" />
+            </svg>
+          </div>
+          <h3 class="font-bold text-slate-900 text-sm">Factura Comercial 3Dcal</h3>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="btn-trigger-pdf-from-modal" class="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold shadow-xs transition">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            Descargar PDF
+          </button>
+          <button id="btn-print-from-modal" class="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            Imprimir
+          </button>
+          <button id="btn-close-modal" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Hoja de Factura imprimible -->
+      <div class="overflow-y-auto p-2 sm:p-4 custom-scrollbar flex-1 flex justify-center">
+        
+        <div id="invoice-sheet" class="bg-white w-full max-w-[760px] p-8 sm:p-10 rounded-2xl shadow-sm border-2 border-emerald-400/80 ring-1 ring-emerald-200/60 text-slate-800 font-sans space-y-6 relative overflow-hidden">
+          <!-- Acento sutil en el borde superior verde esmeralda claro -->
+          <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-500"></div>
+
+          <!-- Encabezado de Factura -->
+          <div class="flex flex-col sm:flex-row justify-between items-start pb-6 border-b border-slate-200 gap-4 pt-1">
+            <div>
+              <div class="flex items-center gap-2.5 mb-1.5">
+                <div class="w-8 h-8 rounded-lg bg-slate-950 flex items-center justify-center p-1.5 text-white">
+                  <svg class="w-full h-full fill-white" viewBox="0 0 100 100">
+                    <path d="M50 8 L92 78 L68 92 L50 64 L32 92 L8 78 Z M50 36 L28 72 L38 78 L50 60 L62 78 L72 72 Z" />
+                  </svg>
+                </div>
+                <h1 class="text-2xl font-black tracking-tight text-slate-950">3Dcal</h1>
+              </div>
+              <p class="text-xs font-semibold text-slate-600">Fabricación Aditiva, modelado & Prototipado 3D</p>
+              <p class="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                Libertador Bolivar - Calle San Vicente.
+              </p>
+            </div>
+
+            <div class="sm:text-right">
+              <span class="inline-block px-2.5 py-1 rounded bg-slate-100 text-slate-800 text-xs font-mono font-bold tracking-wider mb-1" id="inv-doc-code">COT-2026-8941</span>
+              <p class="text-xs text-slate-500">Fecha: <span class="font-medium text-slate-800" id="inv-doc-date">28/09/2026</span></p>
+              <p class="text-xs text-slate-500">Validez: <span class="font-medium text-slate-800">15 días hábiles</span></p>
+            </div>
+          </div>
+
+          <!-- Datos de facturación del cliente -->
+          <div class="grid grid-cols-2 gap-6 pb-6 border-b border-slate-200 text-xs">
+            <div>
+              <span class="font-bold text-slate-400 uppercase tracking-wider block text-[10px] mb-1">FACTURAR A:</span>
+              <h4 class="font-bold text-slate-900 text-sm" id="inv-client-display">Innovatech Soluciones</h4>
+              <p class="text-slate-500 mt-0.5">Cliente Corporativo / Particular</p>
+              <p class="text-slate-500">Estado: <span class="text-emerald-600 font-semibold">Listo para Producción</span></p>
+            </div>
+            <div>
+              <span class="font-bold text-slate-400 uppercase tracking-wider block text-[10px] mb-1">DETALLES DE SERVICIO:</span>
+              <p class="text-slate-600">Tecnología: <span class="font-medium text-slate-900" id="inv-tech-display">FDM / SLA</span></p>
+              <p class="text-slate-600">Material: <span class="font-medium text-slate-900" id="inv-mat-display">PLA Estándar</span></p>
+              <p class="text-slate-600">Tiempo de Máquina: <span class="font-medium text-slate-900 font-mono" id="inv-time-display">4h 30m</span></p>
+            </div>
+          </div>
+
+          <!-- Tabla de Conceptos -->
+          <div>
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th class="py-2.5">Ítem & Especificaciones Técnicas</th>
+                  <th class="py-2.5 text-center">Material</th>
+                  <th class="py-2.5 text-center">Cant.</th>
+                  <th class="py-2.5 text-right">Precio Unit.</th>
+                  <th class="py-2.5 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr>
+                  <td class="py-3.5 pr-2">
+                    <p class="font-bold text-slate-900 text-xs" id="inv-item-name">Prototipo Carcasa Electrónica v2</p>
+                    <p class="text-[11px] text-slate-500 mt-0.5" id="inv-item-subtext">Consumo: 85g aprox. • Retiro de soportes y repasado mecánico</p>
+                  </td>
+                  <td class="py-3.5 text-center text-slate-600 font-medium" id="inv-row-material">PLA</td>
+                  <td class="py-3.5 text-center font-mono font-semibold text-slate-800" id="inv-row-qty">1</td>
+                  <td class="py-3.5 text-right font-mono text-slate-700" id="inv-row-unit-price">$0.00</td>
+                  <td class="py-3.5 text-right font-mono font-bold text-slate-900" id="inv-row-total-price">$0.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Desglose de Totales y Observaciones -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-slate-200 items-start">
+            <div class="space-y-2 text-xs text-slate-500">
+              <span class="font-bold text-slate-400 uppercase tracking-wider block text-[10px]">TÉRMINOS Y FORMAS DE PAGO:</span>
+              <p>• Transferencia bancaria o efectivo antes de la entrega.</p>
+              <p>• Tolerancias mecánicas ±0.2 mm según tecnología de deposición.</p>
+              <p>• Archivos 3D tratados bajo estricta confidencialidad técnica.</p>
+            </div>
+
+            <div class="space-y-1.5 text-xs text-slate-600 sm:pl-8">
+              <div class="flex justify-between py-1 border-b border-slate-100">
+                <span>Subtotal Neto:</span>
+                <span class="font-mono font-semibold text-slate-800" id="inv-total-subtotal">$0.00</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-100" id="inv-tax-line">
+                <span id="inv-tax-label">IVA (15%):</span>
+                <span class="font-mono text-slate-800" id="inv-tax-amount">$0.00</span>
+              </div>
+              <div class="flex justify-between py-2 text-sm font-extrabold text-slate-950 border-t border-slate-200">
+                <span>TOTAL A PAGAR:</span>
+                <span class="font-mono text-base text-brand-700" id="inv-total-final">$0.00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- PIE DE FACTURA CON LOGO Y MUCHAS GRACIAS -->
+          <div class="pt-8 mt-6 border-t border-slate-200 text-center flex flex-col items-center justify-center gap-2">
+            <!-- Logo geométrico estilizado idéntico al de la imagen proporcionada (Punta / Chevron angular) -->
+            <div class="w-10 h-10 text-slate-900 flex items-center justify-center">
+              <svg class="w-full h-full fill-slate-950" viewBox="0 0 100 100">
+                <path d="M50 8 L92 78 L68 92 L50 64 L32 92 L8 78 Z M50 36 L28 72 L38 78 L50 60 L62 78 L72 72 Z" />
+              </svg>
+            </div>
+            
+            <p class="font-black text-slate-900 text-sm tracking-wide uppercase">
+              ¡Muchas gracias por su preferencia!
+            </p>
+            <p class="text-[10px] text-slate-400">
+              3Dcal • Soluciones en Impresión 3D de Alta Resolución
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICACIÓN -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg text-xs font-medium transform translate-y-20 opacity-0 transition duration-300 pointer-events-none z-50 flex items-center gap-2">
+    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+    <span id="toast-message">Notificación</span>
+  </div>
+
+  <script>
+    // ESTADO DE LA APLICACIÓN 3Dcal
+    const state = {
+      itemTitle: 'Prototipo Carcasa Electrónica v2',
+      clientName: 'Innovatech Soluciones Cía.',
+      weightGrams: 85,
+      hours: 4,
+      minutes: 30,
+      units: 1,
+      materialKey: 'pla',
+      materialName: 'PLA Estándar',
+      spoolPrice: 20.00,
+      wastePercent: 8,
+      powerWatts: 130,
+      kwhCost: 0.12,
+      depreciationHourly: 0.25,
+      laborMinutes: 15,
+      laborRatePerHour: 8.00,
+      extrasCost: 0.75,
+      marginPercent: 80,
+      riskPercent: 10,
+      minOrder: 3.50,
+      taxPercent: 15,
+      applyTax: true,
+      invoiceCode: 'INV-' + (new Date().getFullYear()) + '-' + Math.floor(1000 + Math.random() * 9000)
+    };
+
+    // Formateadores numéricos
+    const fmt = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+
+    const fmtPrecise = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3
+    });
+
+    // Elementos del DOM
+    const elItemTitle = document.getElementById('input-item-title');
+    const elClientName = document.getElementById('input-client-name');
+    const elWeight = document.getElementById('input-weight');
+    const elHours = document.getElementById('input-hours');
+    const elMinutes = document.getElementById('input-minutes');
+    const elUnits = document.getElementById('input-units');
+    const elSelectMaterial = document.getElementById('select-material');
+    const elSpoolPrice = document.getElementById('input-spool-price');
+    const elWastePercent = document.getElementById('input-waste-percent');
+    const elPowerWatts = document.getElementById('input-power-watts');
+    const elKwhCost = document.getElementById('input-kwh-cost');
+    const elDepreciation = document.getElementById('input-depreciation-hourly');
+    const elLaborMinutes = document.getElementById('input-labor-minutes');
+    const elLaborRate = document.getElementById('input-labor-rate');
+    const elExtrasCost = document.getElementById('input-extras-cost');
+    const elSliderMargin = document.getElementById('slider-margin');
+    const elMarginValDisplay = document.getElementById('margin-val-display');
+    const elRiskPercent = document.getElementById('input-risk-percent');
+    const elMinOrder = document.getElementById('input-min-order');
+    const elTaxRate = document.getElementById('input-tax-rate');
+    const elApplyTax = document.getElementById('check-apply-tax');
+
+    // Displays
+    const elLabelHoursDec = document.getElementById('label-total-hours-decimal');
+    const elLabelCostPerGram = document.getElementById('label-cost-per-gram');
+    const elFinalPrice = document.getElementById('display-final-price');
+    const elTaxStatus = document.getElementById('display-tax-status');
+    const elPricePerUnit = document.getElementById('display-price-per-unit');
+    const elNetProfit = document.getElementById('display-net-profit');
+    const elTotalCostHeader = document.getElementById('display-total-cost-header');
+    const elBadgeMin = document.getElementById('badge-applied-min');
+    const elMarginRatioLabel = document.getElementById('display-margin-ratio-label');
+    const elInvHeaderCode = document.getElementById('inv-header-code');
+
+    // Desglose
+    const elBdMaterial = document.getElementById('bd-material');
+    const elBdEnergy = document.getElementById('bd-energy');
+    const elBdWear = document.getElementById('bd-wear');
+    const elBdLabor = document.getElementById('bd-labor');
+    const elBdExtras = document.getElementById('bd-extras');
+    const elBdTotalCost = document.getElementById('bd-total-cost');
+    const elBdMargin = document.getElementById('bd-margin');
+    const elBdTax = document.getElementById('bd-tax');
+    const elBdTaxLabel = document.getElementById('bd-tax-label');
+    const elRowTax = document.getElementById('row-tax');
+    const elLabelBdGrams = document.getElementById('label-bd-grams');
+
+    // Barras
+    const barMaterial = document.getElementById('bar-material');
+    const barEnergy = document.getElementById('bar-energy');
+    const barWear = document.getElementById('bar-wear');
+    const barLabor = document.getElementById('bar-labor');
+    const barExtras = document.getElementById('bar-extras');
+
+    // Modal & Factura
+    const modalInvoice = document.getElementById('modal-invoice');
+
+    // Variable global con el último resultado de cálculo
+    let lastCalc = {};
+
+    function loadSavedState() {
+      const saved = localStorage.getItem('3dcal_studio_profile');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          Object.assign(state, parsed);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      syncInputs();
+    }
+
+    function syncInputs() {
+      elItemTitle.value = state.itemTitle;
+      elClientName.value = state.clientName;
+      elWeight.value = state.weightGrams;
+      elHours.value = state.hours;
+      elMinutes.value = state.minutes;
+      elUnits.value = state.units;
+      elSelectMaterial.value = state.materialKey;
+      elSpoolPrice.value = state.spoolPrice;
+      elWastePercent.value = state.wastePercent;
+      elPowerWatts.value = state.powerWatts;
+      elKwhCost.value = state.kwhCost;
+      elDepreciation.value = state.depreciationHourly;
+      elLaborMinutes.value = state.laborMinutes;
+      elLaborRate.value = state.laborRatePerHour;
+      elExtrasCost.value = state.extrasCost;
+      elSliderMargin.value = state.marginPercent;
+      elMarginValDisplay.textContent = `${state.marginPercent}%`;
+      elRiskPercent.value = state.riskPercent;
+      elMinOrder.value = state.minOrder;
+      elTaxRate.value = state.taxPercent;
+      elApplyTax.checked = state.applyTax;
+      elInvHeaderCode.textContent = state.invoiceCode;
+    }
+
+    // ALGORITMO FINANCIERO Y DE PRODUCCIÓN 3D
+    function calculate() {
+      const totalUnits = Math.max(1, state.units);
+      const hoursDecimalSingle = Math.max(0, state.hours) + (Math.max(0, state.minutes) / 60);
+      const totalHoursDecimal = hoursDecimalSingle * totalUnits;
+      
+      elLabelHoursDec.textContent = `Equivale a ${hoursDecimalSingle.toFixed(2)} h / pieza`;
+
+      // 1. Costo Material con desperdicio/purga (1kg = 1000g)
+      const costPerGram = state.spoolPrice / 1000;
+      elLabelCostPerGram.textContent = `${fmtPrecise.format(costPerGram)} / g`;
+
+      const singleWeightGramsWithWaste = state.weightGrams * (1 + (state.wastePercent / 100));
+      const totalGramsUsed = singleWeightGramsWithWaste * totalUnits;
+      const totalMaterialCost = totalGramsUsed * costPerGram;
+
+      // 2. Consumo Eléctrico: kWh = (Watts * Horas) / 1000
+      const totalKwh = (state.powerWatts * totalHoursDecimal) / 1000;
+      const totalEnergyCost = totalKwh * state.kwhCost;
+
+      // 3. Desgaste y Amortización
+      const totalWearCost = totalHoursDecimal * state.depreciationHourly;
+
+      // 4. Mano de Obra Post-proceso
+      const laborHoursSingle = state.laborMinutes / 60;
+      const totalLaborHours = laborHoursSingle * totalUnits;
+      const totalLaborCost = totalLaborHours * state.laborRatePerHour;
+
+      // 5. Insumos extras
+      const totalExtrasCost = state.extrasCost;
+
+      // Subtotal de costo directo
+      const directCost = totalMaterialCost + totalEnergyCost + totalWearCost + totalLaborCost + totalExtrasCost;
+
+      // Fondo de Contingencia / Fallos
+      const riskCost = directCost * (state.riskPercent / 100);
+      const totalProductionCost = directCost + riskCost;
+
+      // Margen Comercial
+      const marginAmount = totalProductionCost * (state.marginPercent / 100);
+      let preTaxTotal = totalProductionCost + marginAmount;
+
+      // Tarifa mínima
+      let appliedMin = false;
+      if (preTaxTotal < state.minOrder) {
+        preTaxTotal = state.minOrder;
+        appliedMin = true;
+      }
+
+      // Impuesto IVA
+      let taxAmount = 0;
+      if (state.applyTax) {
+        taxAmount = preTaxTotal * (state.taxPercent / 100);
+      }
+      const finalPrice = preTaxTotal + taxAmount;
+      const netProfit = preTaxTotal - totalProductionCost;
+      const pricePerUnit = finalPrice / totalUnits;
+
+      lastCalc = {
+        totalUnits,
+        hoursDecimalSingle,
+        totalHoursDecimal,
+        totalGramsUsed,
+        totalMaterialCost,
+        totalEnergyCost,
+        totalWearCost,
+        totalLaborCost,
+        totalExtrasCost,
+        riskCost,
+        totalProductionCost,
+        marginAmount,
+        preTaxTotal,
+        taxAmount,
+        finalPrice,
+        netProfit,
+        pricePerUnit,
+        appliedMin
+      };
+
+      updateUI(lastCalc);
+    }
+
+    function updateUI(res) {
+      elFinalPrice.textContent = fmt.format(res.finalPrice);
+      elPricePerUnit.textContent = fmt.format(res.pricePerUnit);
+      elNetProfit.textContent = fmt.format(res.netProfit);
+      elTotalCostHeader.textContent = fmt.format(res.totalProductionCost);
+
+      elTaxStatus.textContent = state.applyTax ? `IVA (${state.taxPercent}%) incl.` : 'Sin IVA';
+
+      if (res.appliedMin) {
+        elBadgeMin.classList.remove('hidden');
+      } else {
+        elBadgeMin.classList.add('hidden');
+      }
+
+      elMarginRatioLabel.textContent = `Margen ${state.marginPercent}%`;
+
+      // Desglose
+      elLabelBdGrams.textContent = `(${Math.round(res.totalGramsUsed)}g tot.)`;
+      elBdMaterial.textContent = fmt.format(res.totalMaterialCost);
+      elBdEnergy.textContent = fmt.format(res.totalEnergyCost);
+      elBdWear.textContent = fmt.format(res.totalWearCost);
+      elBdLabor.textContent = fmt.format(res.totalLaborCost);
+      elBdExtras.textContent = fmt.format(res.totalExtrasCost + res.riskCost);
+      elBdTotalCost.textContent = fmt.format(res.totalProductionCost);
+      elBdMargin.textContent = `+${fmt.format(res.marginAmount)}`;
+      elBdTax.textContent = `+${fmt.format(res.taxAmount)}`;
+      elBdTaxLabel.textContent = `IVA (${state.taxPercent}%):`;
+
+      if (state.applyTax) {
+        elRowTax.classList.remove('hidden');
+      } else {
+        elRowTax.classList.add('hidden');
+      }
+
+      // Barra visual
+      const safeTotal = Math.max(0.01, res.totalProductionCost);
+      barMaterial.style.width = `${(res.totalMaterialCost / safeTotal) * 100}%`;
+      barEnergy.style.width = `${(res.totalEnergyCost / safeTotal) * 100}%`;
+      barWear.style.width = `${(res.totalWearCost / safeTotal) * 100}%`;
+      barLabor.style.width = `${(res.totalLaborCost / safeTotal) * 100}%`;
+      barExtras.style.width = `${((res.totalExtrasCost + res.riskCost) / safeTotal) * 100}%`;
+
+      // Actualizar contenido de la Factura
+      updateInvoiceSheet(res);
+    }
+
+    function updateInvoiceSheet(res) {
+      const now = new Date();
+      const dateString = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      
+      document.getElementById('inv-doc-code').textContent = state.invoiceCode;
+      document.getElementById('inv-doc-date').textContent = dateString;
+      document.getElementById('inv-client-display').textContent = state.clientName || 'Cliente Particular';
+      document.getElementById('inv-item-name').textContent = state.itemTitle || 'Servicio de Impresión 3D';
+      
+      const hours = state.hours * state.units;
+      const mins = state.minutes * state.units;
+      const totalM = (hours * 60) + mins;
+      const hDisplay = Math.floor(totalM / 60);
+      const mDisplay = totalM % 60;
+
+      document.getElementById('inv-tech-display').textContent = state.materialKey.includes('resin') ? 'SLA / DLP (Resina)' : 'FDM (Filamento)';
+      document.getElementById('inv-mat-display').textContent = state.materialName;
+      document.getElementById('inv-time-display').textContent = `${hDisplay}h ${mDisplay}m`;
+      
+      document.getElementById('inv-item-subtext').textContent = `Consumo: ${state.weightGrams * state.units}g aprox. • Limpieza y remoción de soportes incluido`;
+      document.getElementById('inv-row-material').textContent = state.materialName.split(' ')[0];
+      document.getElementById('inv-row-qty').textContent = state.units;
+      document.getElementById('inv-row-unit-price').textContent = fmt.format(res.pricePerUnit);
+      document.getElementById('inv-row-total-price').textContent = fmt.format(res.finalPrice);
+
+      document.getElementById('inv-total-subtotal').textContent = fmt.format(res.preTaxTotal);
+      document.getElementById('inv-tax-label').textContent = `IVA (${state.taxPercent}%):`;
+      document.getElementById('inv-tax-amount').textContent = fmt.format(res.taxAmount);
+      document.getElementById('inv-total-final').textContent = fmt.format(res.finalPrice);
+
+      const taxLine = document.getElementById('inv-tax-line');
+      if (state.applyTax) {
+        taxLine.classList.remove('hidden');
+      } else {
+        taxLine.classList.add('hidden');
+      }
+    }
+
+    // GENERACIÓN Y DESCARGA DEL PDF
+    function generatePDF() {
+      const invoiceElement = document.getElementById('invoice-sheet');
+      showToast('Generando Factura PDF...');
+
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `Factura_3Dcal_${state.invoiceCode}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opt).from(invoiceElement).save().then(() => {
+        showToast('PDF descargado exitosamente');
+      }).catch(err => {
+        console.error(err);
+        showToast('Error al generar PDF. Utilizando diálogo del navegador...');
+        window.print();
+      });
+    }
+
+    // EVENT LISTENERS
+    elItemTitle.addEventListener('input', (e) => {
+      state.itemTitle = e.target.value;
+      calculate();
+    });
+
+    elClientName.addEventListener('input', (e) => {
+      state.clientName = e.target.value;
+      calculate();
+    });
+
+    elWeight.addEventListener('input', (e) => {
+      state.weightGrams = parseFloat(e.target.value) || 0;
+      calculate();
+    });
+
+    elHours.addEventListener('input', (e) => {
+      state.hours = parseInt(e.target.value) || 0;
+      calculate();
+    });
+
+    elMinutes.addEventListener('input', (e) => {
+      let val = parseInt(e.target.value) || 0;
+      if (val > 59) val = 59;
+      state.minutes = val;
+      calculate();
+    });
+
+    elUnits.addEventListener('input', (e) => {
+      state.units = parseInt(e.target.value) || 1;
+      calculate();
+    });
+
+    elSelectMaterial.addEventListener('change', (e) => {
+      const selected = e.target.selectedOptions[0];
+      state.materialKey = e.target.value;
+      state.materialName = selected.textContent.split(' (')[0];
+      
+      if (e.target.value !== 'custom') {
+        const defaultPrice = parseFloat(selected.dataset.price);
+        state.spoolPrice = defaultPrice;
+        elSpoolPrice.value = defaultPrice.toFixed(2);
+      }
+      calculate();
+    });
+
+    elSpoolPrice.addEventListener('input', (e) => {
+      state.spoolPrice = parseFloat(e.target.value) || 0;
+      calculate();
+    });
+
+    elWastePercent.addEventListener('input', (e) => {
+      state.wastePercent = parseFloat(e.target.value) || 0;
+      calculate();
+    });
+
+    elPowerWatts.addEventListener('input', (e) => {
+      state.powerWatts = parseFloat(e.target.value) || 0;
+      calculate();
+    });
+
+    elKwhCost.addEventListener('input', (e) => {
+      state.kwhCost = parseFloat(e.target.value) || 0;
+      calculate();
+    });
+
+    elDepreciation.addEventListener('input', (e) => {
+      state.depreciationHourly = parseFloat(e.target.value) || 0;
+      calculate();
+    });
+
+    elLaborMinutes.addEventListener('input', (e) => {
+      state.laborMinutes = parseFloat(e.target.value) || 0;
+      calculate();
+    });
+
+    elLaborRate.addEventListener('input', (e) => {
+      state.laborRatePerHour = parseFloat(e.target.value) || 0;
+      calculate();
+    });
+
+    elExtrasCost.addEventListener('input', (e) => {
+      state.extrasCost = parseFloat(e.target.value) || 0;
+      calculate();
+    });
+
+    elSliderMargin.addEventListener('input', (e) => {
+      state.marginPercent = parseInt(e.target.value);
+      elMarginValDisplay.textContent = `${state.marginPercent}%`;
+      calculate();
+    });
+
+    document.querySelectorAll('.preset-margin').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = parseInt(btn.dataset.val);
+        state.marginPercent = val;
+        elSliderMargin.value = val;
+        elMarginValDisplay.textContent = `${val}%`;
+        calculate();
+      });
+    });
+
+    elRiskPercent.addEventListener('input', (e) => {
+      state.riskPercent = parseFloat(e.target.value) || 0;
+      calculate();
+    });
+
+    elMinOrder.addEventListener('input', (e) => {
+      state.minOrder = parseFloat(e.target.value) || 0;
+      calculate();
+    });
+
+    elTaxRate.addEventListener('input', (e) => {
+      state.taxPercent = parseFloat(e.target.value) || 0;
+      calculate();
+    });
+
+    elApplyTax.addEventListener('change', (e) => {
+      state.applyTax = e.target.checked;
+      calculate();
+    });
+
+    // Guardar Perfil
+    document.getElementById('btn-save-defaults').addEventListener('click', () => {
+      localStorage.setItem('3dcal_studio_profile', JSON.stringify(state));
+      showToast('Perfil de costos guardado en 3Dcal');
+    });
+
+    // Resetear
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      localStorage.removeItem('3dcal_studio_profile');
+      state.itemTitle = 'Prototipo Carcasa Electrónica v2';
+      state.clientName = 'Innovatech Soluciones Cía.';
+      state.weightGrams = 85;
+      state.hours = 4;
+      state.minutes = 30;
+      state.units = 1;
+      state.materialKey = 'pla';
+      state.materialName = 'PLA Estándar';
+      state.spoolPrice = 20.00;
+      state.wastePercent = 8;
+      state.powerWatts = 130;
+      state.kwhCost = 0.12;
+      state.depreciationHourly = 0.25;
+      state.laborMinutes = 15;
+      state.laborRatePerHour = 8.00;
+      state.extrasCost = 0.75;
+      state.marginPercent = 80;
+      state.riskPercent = 10;
+      state.minOrder = 3.50;
+      state.taxPercent = 15;
+      state.applyTax = true;
+      state.invoiceCode = 'INV-' + (new Date().getFullYear()) + '-' + Math.floor(1000 + Math.random() * 9000);
+
+      syncInputs();
+      calculate();
+      showToast('Valores restablecidos');
+    });
+
+    // Control del Modal de Factura
+    const openInvoiceModal = () => {
+      modalInvoice.classList.remove('hidden');
+    };
+    const closeInvoiceModal = () => {
+      modalInvoice.classList.add('hidden');
+    };
+
+    document.getElementById('btn-open-preview').addEventListener('click', openInvoiceModal);
+    document.getElementById('btn-modal-preview').addEventListener('click', openInvoiceModal);
+    document.getElementById('btn-close-modal').addEventListener('click', closeInvoiceModal);
+
+    modalInvoice.addEventListener('click', (e) => {
+      if (e.target === modalInvoice) {
+        closeInvoiceModal();
+      }
+    });
+
+    // Acciones de Descarga e Impresión
+    document.getElementById('btn-export-pdf').addEventListener('click', generatePDF);
+    document.getElementById('btn-trigger-pdf-from-modal').addEventListener('click', generatePDF);
+    document.getElementById('btn-print-from-modal').addEventListener('click', () => {
+      window.print();
+    });
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-message');
+      toastMsg.textContent = message;
+      toast.classList.remove('opacity-0', 'translate-y-20');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'translate-y-20');
+      }, 2500);
+    }
+
+    // Inicialización al cargar página
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      loadSavedState();
+      calculate();
+    });
+  </script>
+</body>
+</html>
